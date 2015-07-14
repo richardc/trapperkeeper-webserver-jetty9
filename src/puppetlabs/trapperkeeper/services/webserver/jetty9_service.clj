@@ -5,14 +5,14 @@
     [puppetlabs.trapperkeeper.services.webserver.jetty9-config :as config]
     [puppetlabs.trapperkeeper.services.webserver.jetty9-core :as core]
     [puppetlabs.trapperkeeper.services :refer [service-context]]
-    [puppetlabs.trapperkeeper.core :refer [defservice]]
-    [schema.core :as schema]))
+    [puppetlabs.trapperkeeper.core :refer [defservice]]))
 
 ;; TODO: this should probably be moved to a separate jar that can be used as
 ;; a dependency for all webserver service implementations
 (defprotocol WebserverService
   (add-context-handler [this base-path context-path] [this base-path context-path options])
   (add-ring-handler [this handler path] [this handler path options])
+  (add-websocket-handler [this handlers path] [this handler path options])
   (add-servlet-handler [this servlet path] [this servlet path options])
   (add-war-handler [this war path] [this war path options])
   (add-proxy-route [this target path] [this target path options])
@@ -60,6 +60,12 @@
 
   (add-ring-handler [this handler path options]
                     (core/add-ring-handler! (service-context this) handler path options))
+
+  (add-websocket-handler [this handlers path]
+    (core/add-websocket-handler! (service-context this) handlers path {}))
+
+  (add-websocket-handler [this handlers path options]
+    (core/add-websocket-handler! (service-context this) handlers path options))
 
   (add-servlet-handler [this servlet path]
                        (core/add-servlet-handler! (service-context this) servlet path {}))

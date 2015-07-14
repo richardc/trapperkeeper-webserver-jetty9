@@ -19,7 +19,7 @@
            (java.net URI)
            (java.security Security)
            (org.eclipse.jetty.client HttpClient)
-           (clojure.lang Atom)
+           (clojure.lang Atom IFn)
            (java.lang.management ManagementFactory)
            (org.eclipse.jetty.jmx MBeanContainer)
            (org.eclipse.jetty.util URIUtil BlockingArrayQueue)
@@ -90,6 +90,17 @@
     (schema/optional-key :idle-timeout) (schema/both schema/Int
                                                      (schema/pred pos?))))
 
+;; TODO: this schema could probably be improved, and/or some of the wrapper
+;; logic from cthun could be moved into this namespace.  (That might allow us
+;; to avoid leaking the `WebsocketAdapter` class through the API, but could probably
+;; be done in a follow-up commit.
+(def WebsocketHandlers
+  {:on-connect IFn
+   :on-error IFn
+   :on-close IFn
+   :on-text IFn
+   :on-bytes IFn})
+
 (def ServerContext
   {:state     Atom
    :handlers  ContextHandlerCollection
@@ -102,6 +113,9 @@
 
 (def RingEndpoint
   {:type     (schema/eq :ring)})
+
+(def WebsocketEndpoint
+  {:type     (schema/eq :websocket)})
 
 (def ServletEndpoint
   {:type     (schema/eq :servlet)
@@ -121,6 +135,7 @@
   (schema/conditional
     #(-> % :type (= :context)) ContextEndpoint
     #(-> % :type (= :ring)) RingEndpoint
+    #(-> % :type (= :websocket)) WebsocketEndpoint
     #(-> % :type (= :servlet)) ServletEndpoint
     #(-> % :type (= :war)) WarEndpoint
     #(-> % :type (= :proxy)) ProxyEndpoint))
@@ -410,6 +425,12 @@
           (servlet/update-servlet-response response response-map)
           (.setHandled base-request true))))))
 
+;; TODO: add schema for return type once this is implemented
+(schema/defn ^:always-validate websocket-handler
+  "Returns a Jetty Handler implementation for the given Websocket handlers"
+  [handlers :- WebsocketHandlers]
+  (log/info "TODO: build a websocket handler"))
+
 (schema/defn ^:always-validate
   proxy-servlet :- ProxyServlet
   "Create an instance of Jetty's `ProxyServlet` that will proxy requests at
@@ -666,6 +687,18 @@
   (let [ctxt-handler (doto (ContextHandler. path)
                        (.setHandler (ring-handler handler)))]
     (add-handler webserver-context ctxt-handler enable-trailing-slash-redirect?)))
+
+(schema/defn ^:always-validate
+  add-websocket-handler ;; TODO uncomment ;:- ContextHandler
+  [webserver-context :- ServerContext
+   handlers :- WebsocketHandlers
+   path :- schema/Str
+   enable-trailing-slash-redirect?]
+  (let [ctxt-handler (doto (ContextHandler. path)
+                       (.setHandler (websocket-handler handlers)))]
+    ;; TODO: uncomment this line after build-websocket-handler is implemented
+    #_(add-handler webserver-context ctxt-handler enable-trailing-slash-redirect?))
+  )
 
 (schema/defn ^:always-validate
   add-servlet-handler :- ContextHandler
@@ -927,6 +960,19 @@
         enable-redirect  (:redirect-if-no-trailing-slash options)]
     (register-endpoint! state endpoint-map path)
     (add-ring-handler s handler path enable-redirect)))
+
+(schema/defn ^:always-validate add-websocket-handler!
+  [context
+   handlers :- WebsocketHandlers
+   path :- schema/Str
+   options :- CommonOptions]
+  (let [server-id     (:server-id options)
+        s             (get-server-context context server-id)
+        state         (:state s)
+        endpoint-map  {:type     :websocket}
+        enable-redirect  (:redirect-if-no-trailing-slash options)]
+    (register-endpoint! state endpoint-map path)
+    (add-websocket-handler s handlers path enable-redirect)))
 
 (schema/defn ^:always-validate add-servlet-handler!
   [context servlet path options :- ServletHandlerOptions]
