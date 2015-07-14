@@ -14,7 +14,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.logging "0.2.6"]
                  [clj-time "0.5.1"]
-                 [prismatic/schema "0.4.0"]
+                 [prismatic/schema "0.4.3"]
                  [prismatic/plumbing "0.4.2"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
@@ -34,6 +34,7 @@
                  [org.eclipse.jetty/jetty-webapp ~jetty-version]
                  [org.eclipse.jetty/jetty-proxy ~jetty-version]
                  [org.eclipse.jetty/jetty-jmx ~jetty-version]
+                 [org.eclipse.jetty.websocket/websocket-server ~jetty-version]
 
                  [ring/ring-servlet "1.1.8" :exclusions [javax.servlet/servlet-api commons-codec]]]
 
@@ -70,8 +71,11 @@
                                   [spyscope "0.1.4"]
                                   [compojure "1.1.8" :exclusions [ring/ring-core
                                                                   commons-io
-                                                                  org.clojure/tools.macro]]]
-                    :injections [(require 'spyscope.core)]
+                                                                  org.clojure/tools.macro]]
+                                  [stylefruits/gniazdo "0.4.0" :exclusions [org.eclipse.jetty.websocket/websocket-api
+                                                                            org.eclipse.jetty.websocket/websocket-client
+                                                                            org.eclipse.jetty/jetty-util]]]
+                   :injections [(require 'spyscope.core)]
                     ;; Enable SSLv3 for unit tests that exercise SSLv3
                     :jvm-opts ["-Djava.security.properties=./dev-resources/java.security"]}
 
