@@ -4,12 +4,14 @@
            (java.nio.file Paths Files)
            (java.nio.file.attribute FileAttribute))
   (:require [clojure.test :refer :all]
+            [gniazdo.core :as ws-client]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer :all]
             [puppetlabs.trapperkeeper.testutils.webserver.common :refer :all]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :refer [with-app-with-config]]
             [puppetlabs.trapperkeeper.testutils.logging
              :refer [with-test-logging]]
+            [puppetlabs.websockets.client :as ws-session]
             [schema.test :as schema-test]))
 
 (use-fixtures :once schema-test/validate-schemas)
@@ -171,6 +173,41 @@
           (is (= (:status response) 200))
           (is (= (:body response) init-param-two)))))))
 
+(deftest websocket-test
+  (testing "Websocket handlers"
+    (with-app-with-config app
+      [jetty9-service]
+      jetty-plaintext-config
+      (let [s                     (get-service app :WebserverService)
+            add-websocket-handler (partial add-websocket-handler s)
+            path                  "/test"
+            connected             (atom 0)
+            server-messages       (atom [])
+            client-messages       (atom [])
+            handlers              {:on-connect (fn [ws]
+                                                 (ws-session/send! ws "Hello client!")
+                                                 (swap! connected inc))
+                                   :on-text    (fn [ws text]
+                                                 (ws-session/send! ws (str "You said: " text))
+                                                 (swap! server-messages conj text))}]
+        (add-websocket-handler handlers path)
+        (let [socket (ws-client/connect (str "ws://localhost:8080" path)
+                                        :on-receive (fn [text] (swap! client-messages conj text)))]
+          (ws-client/send-msg socket "Hello websocket handler")
+          (ws-client/send-msg socket "You look dandy")
+          ;; Websockets by their nature are a chat protocol so we have
+          ;; to wait a small amount of time for the responses sent by
+          ;; the :on-text handler to make it back before we can
+          ;; disconnect
+          (Thread/sleep 200)
+          (ws-client/close socket))
+        (is (= @connected 1))
+        (is (= @client-messages ["Hello client!"
+                                 "You said: Hello websocket handler"
+                                 "You said: You look dandy"]))
+        (is (= @server-messages ["Hello websocket handler"
+                                 "You look dandy"]))))))
+
 (deftest war-test
   (testing "WAR support"
     (with-app-with-config app
@@ -213,12 +250,14 @@
             path-servlet             "/foo"
             path-war                 "/bar"
             path-proxy               "/baz"
+            path-websocket           "/quux"
             get-registered-endpoints (partial get-registered-endpoints s)
             add-context-handler      (partial add-context-handler s)
             add-ring-handler         (partial add-ring-handler s)
             add-servlet-handler      (partial add-servlet-handler s)
             add-war-handler          (partial add-war-handler s)
             add-proxy-route          (partial add-proxy-route s)
+            add-websocket-handler    (partial add-websocket-handler s)
             ring-handler             (fn [req] {:status 200 :body "Hi world"})
             body                     "This is a test"
             servlet                  (SimpleServlet. body)
@@ -228,6 +267,7 @@
                                             (.addMapping (into-array [path-servlet]))))
                                         (contextDestroyed [this event]))]
             war                      "helloWorld.war"
+            websocket-handlers       {:on-connect (fn [ws])}
             target                   {:host "0.0.0.0"
                                       :port 9000
                                       :path "/ernie"}
@@ -242,6 +282,7 @@
         (add-war-handler (str dev-resources-dir war) path-war)
         (add-proxy-route target path-proxy)
         (add-proxy-route target2 path-proxy {})
+        (add-websocket-handler websocket-handlers path-websocket)
         (let [endpoints (get-registered-endpoints)]
           (is (= endpoints {"/ernie" [{:type :context :base-path dev-resources-dir
                                        :context-listeners []}]
@@ -255,7 +296,8 @@
                             "/baz" [{:type :proxy :target-host "0.0.0.0" :target-port 9000
                                      :target-path "/ernie"}
                                     {:type :proxy :target-host "localhost" :target-port 10000
-                                     :target-path "/kermit"}]}))))))
+                                     :target-path "/kermit"}]
+                            "/quux" [{:type :websocket}]}))))))
 
   (testing "Log endpoints"
     (with-test-logging
