@@ -4,4 +4,5 @@
   (send! [this msg])
   (close! [this])
   (remote-addr [this])
-  (idle-timeout! [this ms]))
+  (idle-timeout! [this ms])
+  (connected? [this]))
