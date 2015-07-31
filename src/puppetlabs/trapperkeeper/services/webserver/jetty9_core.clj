@@ -454,6 +454,11 @@
     (.. this (getSession) (close)))
   (remote-addr [this]
     (.. this (getSession) (getRemoteAddress)))
+  (ssl? [this]
+    (.. this (getSession) (getUpgradeRequest) (isSecure)))
+  (peer-cn [this]
+    (log/info "TODO implement querying cn from peer cert")
+    "todo")
   (idle-timeout! [this ms]
     (.. this (getSession) (setIdleTimeout ^long ms)))
   (connected? [this]
