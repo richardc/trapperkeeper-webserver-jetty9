@@ -458,7 +458,7 @@
     (.. this (getSession) (getUpgradeRequest) (isSecure)))
   (peer-cn [this]
     (log/info "TODO implement querying cn from peer cert")
-    "todo")
+    (.. this (getCert)))
   (idle-timeout! [this ms]
     (.. this (getSession) (setIdleTimeout ^long ms)))
   (connected? [this]
@@ -488,7 +488,8 @@
         (proxy-super onWebSocketClose statusCode reason))
       (on-close this statusCode reason))
     (onWebSocketBinary [^bytes payload offset len]
-      (on-bytes this payload offset len))))
+      (on-bytes this payload offset len))
+    (getCert [] "todo-2")))
 
 (defn proxy-ws-creator
   [handlers]
@@ -845,7 +846,7 @@
     at that endpoint. Each of these maps contains the type of the
     handler under the :type key, and may contain additional information
     as well.
-    
+
     When the value of :type is :context, the endpoint information will
     be an instance of ContextEndpoint.
 
