@@ -465,8 +465,8 @@
 
 (defn- do-nothing [& args])
 
-(definterface CertGetter
-  (^Object getCerts []))
+(defprotocol CertGetter
+  (getCerts [_] "Return the x509Certs associated with a session"))
 
 (defn proxy-ws-adapter
   [{:as handlers
