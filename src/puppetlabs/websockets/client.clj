@@ -5,6 +5,6 @@
   (close! [this])
   (remote-addr [this])
   (ssl? [this])
-  (peer-cn [this])
+  (peer-certs [this])
   (idle-timeout! [this ms])
   (connected? [this]))

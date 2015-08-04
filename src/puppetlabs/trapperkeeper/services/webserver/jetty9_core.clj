@@ -456,9 +456,8 @@
     (.. this (getSession) (getRemoteAddress)))
   (ssl? [this]
     (.. this (getSession) (getUpgradeRequest) (isSecure)))
-  (peer-cn [this]
-    (log/info "TODO implement querying cn from peer cert")
-    (.. this (getCert)))
+  (peer-certs [this]
+    (.. this (getCerts)))
   (idle-timeout! [this ms]
     (.. this (getSession) (setIdleTimeout ^long ms)))
   (connected? [this]
@@ -467,7 +466,7 @@
 (defn- do-nothing [& args])
 
 (definterface CertGetter
-  (^Object getCert []))
+  (^Object getCerts []))
 
 (defn proxy-ws-adapter
   [{:as handlers
@@ -476,7 +475,7 @@
          on-error do-nothing
          on-text do-nothing
          on-close do-nothing
-         on-bytes do-nothing}}]
+         on-bytes do-nothing}} x509certs]
   (proxy [WebSocketAdapter CertGetter] []
     (onWebSocketConnect [^Session session]
       (let [^WebSocketAdapter this this]
@@ -492,13 +491,14 @@
       (on-close this statusCode reason))
     (onWebSocketBinary [^bytes payload offset len]
       (on-bytes this payload offset len))
-    (getCert [] "todo-2")))
+    (getCerts [] x509certs)))
 
 (defn proxy-ws-creator
   [handlers]
   (reify WebSocketCreator
-    (createWebSocket [this _ _]
-      (proxy-ws-adapter handlers))))
+    (createWebSocket [this req _]
+      (let [x509certs (.. req (getCertificates))]
+        (proxy-ws-adapter handlers x509certs)))))
 
 (schema/defn ^:always-validate websocket-handler :- WebSocketHandler
   "Returns a Jetty Handler implementation for the given Websocket handlers"
