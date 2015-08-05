@@ -12,9 +12,8 @@
            (org.eclipse.jetty.servlets.gzip GzipHandler)
            (org.eclipse.jetty.servlet ServletContextHandler ServletHolder DefaultServlet)
            (org.eclipse.jetty.webapp WebAppContext)
-           (org.eclipse.jetty.websocket.api WebSocketAdapter Session)
            (org.eclipse.jetty.websocket.server WebSocketHandler)
-           (org.eclipse.jetty.websocket.servlet WebSocketServletFactory WebSocketCreator)
+           (org.eclipse.jetty.websocket.servlet WebSocketServletFactory)
            (java.util HashSet)
            (org.eclipse.jetty.http MimeTypes HttpHeader HttpHeaderValue)
            (javax.servlet Servlet ServletContextListener)
@@ -26,8 +25,7 @@
            (java.lang.management ManagementFactory)
            (org.eclipse.jetty.jmx MBeanContainer)
            (org.eclipse.jetty.util URIUtil BlockingArrayQueue)
-           (java.io IOException)
-           (java.nio ByteBuffer))
+           (java.io IOException))
 
   (:require [ring.util.servlet :as servlet]
             [ring.util.codec :as codec]
@@ -35,6 +33,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.websockets.client :refer [WebSocketProtocol]]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-config :as config]
+            [puppetlabs.trapperkeeper.services.webserver.jetty9-websockets :as websockets]
             [schema.core :as schema]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -430,86 +429,12 @@
           (servlet/update-servlet-response response response-map)
           (.setHandled base-request true))))))
 
-(defprotocol WebSocketSend
-  (-send! [x ws] "How to encode content sent to the WebSocket clients"))
-
-(extend-protocol WebSocketSend
-  (Class/forName "[B")
-  (-send! [ba ws]
-    (-send! (ByteBuffer/wrap ba) ws))
-
-  ByteBuffer
-  (-send! [bb ws]
-    (-> ^WebSocketAdapter ws .getRemote (.sendBytes ^ByteBuffer bb)))
-
-  String
-  (-send! [s ws]
-    (-> ^WebSocketAdapter ws .getRemote (.sendString ^String s))))
-
-(extend-protocol WebSocketProtocol
-  WebSocketAdapter
-  (send! [this msg]
-    (-send! msg this))
-  (close! [this]
-    (.. this (getSession) (close)))
-  (remote-addr [this]
-    (.. this (getSession) (getRemoteAddress)))
-  (ssl? [this]
-    (.. this (getSession) (getUpgradeRequest) (isSecure)))
-  (peer-certs [this]
-    (.. this (getCerts)))
-  (idle-timeout! [this ms]
-    (.. this (getSession) (setIdleTimeout ^long ms)))
-  (connected? [this]
-    (. this (isConnected))))
-
-(defn- do-nothing [& args])
-
-(definterface CertGetter
-  (^Object getCerts []))
-
-(defn proxy-ws-adapter
-  [{:as handlers
-    :keys [on-connect on-error on-text on-close on-bytes]
-    :or {on-connect do-nothing
-         on-error do-nothing
-         on-text do-nothing
-         on-close do-nothing
-         on-bytes do-nothing}} x509certs]
-  (proxy [WebSocketAdapter CertGetter] []
-    (onWebSocketConnect [^Session session]
-      (let [^WebSocketAdapter this this]
-        (proxy-super onWebSocketConnect session))
-      (on-connect this))
-    (onWebSocketError [^Throwable e]
-      (on-error this e))
-    (onWebSocketText [^String message]
-      (on-text this message))
-    (onWebSocketClose [statusCode ^String reason]
-      (let [^WebSocketAdapter this this]
-        (proxy-super onWebSocketClose statusCode reason))
-      (on-close this statusCode reason))
-    (onWebSocketBinary [^bytes payload offset len]
-      (on-bytes this payload offset len))
-    (getCerts [] x509certs)))
-
-(defn proxy-ws-creator
-  [handlers]
-  (reify WebSocketCreator
-    (createWebSocket [this req _]
-      (let [x509certs (.. req (getCertificates))]
-        (proxy-ws-adapter handlers x509certs)))))
-
 (schema/defn ^:always-validate websocket-handler :- WebSocketHandler
-  "Returns a Jetty Handler implementation for the given Websocket handlers"
+  "Returns a Jetty Handler implementation for the given set of Websocket handlers"
   [handlers :- WebsocketHandlers]
-  (log/info "making WebSocketHandler")
   (proxy [WebSocketHandler] []
     (configure [^WebSocketServletFactory factory]
-      (log/info "Configuring for " factory)
-      (-> (.getPolicy factory)
-          (.setIdleTimeout 5000000))
-      (.setCreator factory (proxy-ws-creator handlers)))
+      (.setCreator factory (websockets/proxy-ws-creator handlers)))
     (handle [^String target, ^Request request req res]
       (let [wsf (proxy-super getWebSocketFactory)]
         (if (.isUpgradeRequest wsf req res)
