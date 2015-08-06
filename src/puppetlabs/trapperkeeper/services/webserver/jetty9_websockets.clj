@@ -1,13 +1,21 @@
 (ns puppetlabs.trapperkeeper.services.webserver.jetty9-websockets
-  (:import (org.eclipse.jetty.websocket.api WebSocketAdapter Session)
+  (:import (clojure.lang IFn)
+           (org.eclipse.jetty.websocket.api WebSocketAdapter Session)
            (org.eclipse.jetty.websocket.server WebSocketHandler)
            (org.eclipse.jetty.websocket.servlet WebSocketServletFactory WebSocketCreator)
+           (java.security.cert X509Certificate)
            (java.nio ByteBuffer))
 
   (:require [clojure.tools.logging :as log]
             [puppetlabs.websockets.client :refer [WebSocketProtocol]]
             [schema.core :as schema]))
 
+(def WebsocketHandlers
+  {:on-connect IFn
+   :on-error IFn
+   :on-close IFn
+   :on-text IFn
+   :on-bytes IFn})
 
 (defprotocol WebSocketSend
   (-send! [x ws] "How to encode content sent to the WebSocket clients"))
@@ -47,34 +55,35 @@
 (definterface CertGetter
   (^Object getCerts []))
 
-(defn proxy-ws-adapter
-  [{:as handlers
-    :keys [on-connect on-error on-text on-close on-bytes]
-    :or {on-connect do-nothing
-         on-error do-nothing
-         on-text do-nothing
-         on-close do-nothing
-         on-bytes do-nothing}} x509certs]
-  (proxy [WebSocketAdapter CertGetter] []
-    (onWebSocketConnect [^Session session]
-      (let [^WebSocketAdapter this this]
-        (proxy-super onWebSocketConnect session))
-      (on-connect this))
-    (onWebSocketError [^Throwable e]
-      (on-error this e))
-    (onWebSocketText [^String message]
-      (on-text this message))
-    (onWebSocketClose [statusCode ^String reason]
-      (let [^WebSocketAdapter this this]
-        (proxy-super onWebSocketClose statusCode reason))
-      (on-close this statusCode reason))
-    (onWebSocketBinary [^bytes payload offset len]
-      (on-bytes this payload offset len))
-    (getCerts [] x509certs)))
+(schema/defn ^:always-validate proxy-ws-adapter :- WebSocketAdapter
+  [handlers :- WebsocketHandlers
+   x509certs :- [X509Certificate]]
+  (let [{:keys [on-connect on-error on-text on-close on-bytes]
+         :or {on-connect do-nothing
+              on-error do-nothing
+              on-text do-nothing
+              on-close do-nothing
+              on-bytes do-nothing}} handlers]
+    (proxy [WebSocketAdapter CertGetter] []
+      (onWebSocketConnect [^Session session]
+        (let [^WebSocketAdapter this this]
+          (proxy-super onWebSocketConnect session))
+        (on-connect this))
+      (onWebSocketError [^Throwable e]
+        (on-error this e))
+      (onWebSocketText [^String message]
+        (on-text this message))
+      (onWebSocketClose [statusCode ^String reason]
+        (let [^WebSocketAdapter this this]
+          (proxy-super onWebSocketClose statusCode reason))
+        (on-close this statusCode reason))
+      (onWebSocketBinary [^bytes payload offset len]
+        (on-bytes this payload offset len))
+      (getCerts [] x509certs))))
 
-(defn proxy-ws-creator
-  [handlers]
+(schema/defn ^:always-validate proxy-ws-creator :- WebSocketCreator
+  [handlers :- WebsocketHandlers]
   (reify WebSocketCreator
     (createWebSocket [this req _]
-      (let [x509certs (.. req (getCertificates))]
+      (let [x509certs (vec (.. req (getCertificates)))]
         (proxy-ws-adapter handlers x509certs)))))

@@ -21,7 +21,7 @@
            (java.net URI)
            (java.security Security)
            (org.eclipse.jetty.client HttpClient)
-           (clojure.lang Atom IFn)
+           (clojure.lang Atom)
            (java.lang.management ManagementFactory)
            (org.eclipse.jetty.jmx MBeanContainer)
            (org.eclipse.jetty.util URIUtil BlockingArrayQueue)
@@ -93,17 +93,6 @@
     (schema/optional-key :follow-redirects) schema/Bool
     (schema/optional-key :idle-timeout) (schema/both schema/Int
                                                      (schema/pred pos?))))
-
-;; TODO: this schema could probably be improved, and/or some of the wrapper
-;; logic from cthun could be moved into this namespace.  (That might allow us
-;; to avoid leaking the `WebsocketAdapter` class through the API, but could probably
-;; be done in a follow-up commit.
-(def WebsocketHandlers
-  {:on-connect IFn
-   :on-error IFn
-   :on-close IFn
-   :on-text IFn
-   :on-bytes IFn})
 
 (def ServerContext
   {:state     Atom
@@ -431,7 +420,7 @@
 
 (schema/defn ^:always-validate websocket-handler :- WebSocketHandler
   "Returns a Jetty Handler implementation for the given set of Websocket handlers"
-  [handlers :- WebsocketHandlers]
+  [handlers :- websockets/WebsocketHandlers]
   (proxy [WebSocketHandler] []
     (configure [^WebSocketServletFactory factory]
       (.setCreator factory (websockets/proxy-ws-creator handlers)))
@@ -704,7 +693,7 @@
 (schema/defn ^:always-validate
   add-websocket-handler :- ContextHandler
   [webserver-context :- ServerContext
-   handlers :- WebsocketHandlers
+   handlers :- websockets/WebsocketHandlers
    path :- schema/Str
    enable-trailing-slash-redirect?]
   (let [ctxt-handler (doto (ContextHandler. path)
@@ -974,7 +963,7 @@
 
 (schema/defn ^:always-validate add-websocket-handler!
   [context
-   handlers :- WebsocketHandlers
+   handlers :- websockets/WebsocketHandlers
    path :- schema/Str
    options :- CommonOptions]
   (let [server-id     (:server-id options)
