@@ -31,7 +31,6 @@
             [ring.util.codec :as codec]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.websockets.client :refer [WebSocketProtocol]]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-config :as config]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-websockets :as websockets]
             [schema.core :as schema]))
