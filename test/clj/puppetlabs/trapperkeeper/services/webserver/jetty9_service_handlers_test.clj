@@ -4,6 +4,7 @@
            (java.nio.file Paths Files)
            (java.nio.file.attribute FileAttribute))
   (:require [clojure.test :refer :all]
+            [gniazdo.core :as ws-client]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer :all]
             [puppetlabs.trapperkeeper.testutils.webserver.common :refer :all]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -170,6 +171,26 @@
                          (str "http://localhost:8080" path "/init-param-two"))]
           (is (= (:status response) 200))
           (is (= (:body response) init-param-two)))))))
+
+(deftest websocket-test
+  (testing "Websocket handlers"
+    (with-app-with-config app
+      [jetty9-service]
+      jetty-plaintext-config
+      (let [s                     (get-service app :WebserverService)
+            add-websocket-handler (partial add-websocket-handler s)
+            path                  "/test"
+            connected             (atom 0)
+            messages              (atom [])
+            handlers              {:on-connect (fn [_] (swap! connected inc))
+                                   :on-text (fn [_ text] (swap! messages conj text))}]
+        (add-websocket-handler handlers path)
+        (let [socket (ws-client/connect (str "ws://localhost:8080" path))]
+          (ws-client/send-msg socket "Hello websocket handler")
+          (ws-client/send-msg socket "You look dandy")
+          (ws-client/close socket))
+        (is (= @connected 1))
+        (is (= @messages ["Hello websocket handler" "You look dandy"]))))))
 
 (deftest war-test
   (testing "WAR support"

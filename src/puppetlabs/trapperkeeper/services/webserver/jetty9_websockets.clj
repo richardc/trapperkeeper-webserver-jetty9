@@ -12,11 +12,11 @@
             [schema.core :as schema]))
 
 (def WebsocketHandlers
-  {:on-connect IFn
-   :on-error IFn
-   :on-close IFn
-   :on-text IFn
-   :on-bytes IFn})
+  {(schema/optional-key :on-connect) IFn
+   (schema/optional-key :on-error) IFn
+   (schema/optional-key :on-close) IFn
+   (schema/optional-key :on-text) IFn
+   (schema/optional-key :on-bytes) IFn})
 
 (defprotocol WebSocketSend
   (-send! [x ws] "How to encode content sent to the WebSocket clients"))

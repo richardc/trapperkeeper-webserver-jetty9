@@ -71,7 +71,10 @@
                                   [org.clojure/java.jmx "0.3.0"]
                                   [compojure "1.1.8" :exclusions [ring/ring-core
                                                                   commons-io
-                                                                  org.clojure/tools.macro]]]
+                                                                  org.clojure/tools.macro]]
+                                  [stylefruits/gniazdo "0.4.0" :exclusions [org.eclipse.jetty.websocket/websocket-api
+                                                                            org.eclipse.jetty.websocket/websocket-client
+                                                                            org.eclipse.jetty/jetty-util]]]
                     ;; Enable SSLv3 for unit tests that exercise SSLv3
                     :jvm-opts ["-Djava.security.properties=./dev-resources/java.security"]}
 
