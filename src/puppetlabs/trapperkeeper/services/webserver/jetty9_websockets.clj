@@ -1,5 +1,6 @@
 (ns puppetlabs.trapperkeeper.services.webserver.jetty9-websockets
   (:import (clojure.lang IFn)
+           (org.eclipse.jetty.server Request)
            (org.eclipse.jetty.websocket.api WebSocketAdapter Session)
            (org.eclipse.jetty.websocket.server WebSocketHandler)
            (org.eclipse.jetty.websocket.servlet WebSocketServletFactory WebSocketCreator)
@@ -87,3 +88,18 @@
     (createWebSocket [this req _]
       (let [x509certs (vec (.. req (getCertificates)))]
         (proxy-ws-adapter handlers x509certs)))))
+
+(schema/defn ^:always-validate websocket-handler :- WebSocketHandler
+  "Returns a Jetty WebSocketHandler implementation for the given set of Websocket handlers"
+  [handlers :- WebsocketHandlers]
+  (proxy [WebSocketHandler] []
+    (configure [^WebSocketServletFactory factory]
+      (.setCreator factory (proxy-ws-creator handlers)))
+    (handle [^String target, ^Request request req res]
+      (let [wsf (proxy-super getWebSocketFactory)]
+        (if (.isUpgradeRequest wsf req res)
+          (if (.acceptWebSocket wsf req res)
+            (.setHandled request true)
+            (when (.isCommitted res)
+              (.setHandled request true)))
+          (proxy-super handle target request req res))))))

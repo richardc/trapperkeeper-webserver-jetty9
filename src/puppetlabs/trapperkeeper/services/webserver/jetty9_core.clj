@@ -12,8 +12,6 @@
            (org.eclipse.jetty.servlets.gzip GzipHandler)
            (org.eclipse.jetty.servlet ServletContextHandler ServletHolder DefaultServlet)
            (org.eclipse.jetty.webapp WebAppContext)
-           (org.eclipse.jetty.websocket.server WebSocketHandler)
-           (org.eclipse.jetty.websocket.servlet WebSocketServletFactory)
            (java.util HashSet)
            (org.eclipse.jetty.http MimeTypes HttpHeader HttpHeaderValue)
            (javax.servlet Servlet ServletContextListener)
@@ -417,21 +415,6 @@
           (servlet/update-servlet-response response response-map)
           (.setHandled base-request true))))))
 
-(schema/defn ^:always-validate websocket-handler :- WebSocketHandler
-  "Returns a Jetty Handler implementation for the given set of Websocket handlers"
-  [handlers :- websockets/WebsocketHandlers]
-  (proxy [WebSocketHandler] []
-    (configure [^WebSocketServletFactory factory]
-      (.setCreator factory (websockets/proxy-ws-creator handlers)))
-    (handle [^String target, ^Request request req res]
-      (let [wsf (proxy-super getWebSocketFactory)]
-        (if (.isUpgradeRequest wsf req res)
-          (if (.acceptWebSocket wsf req res)
-            (.setHandled request true)
-            (when (.isCommitted res)
-              (.setHandled request true)))
-          (proxy-super handle target request req res))))))
-
 (schema/defn ^:always-validate
   proxy-servlet :- ProxyServlet
   "Create an instance of Jetty's `ProxyServlet` that will proxy requests at
@@ -696,7 +679,7 @@
    path :- schema/Str
    enable-trailing-slash-redirect?]
   (let [ctxt-handler (doto (ContextHandler. path)
-                       (.setHandler (websocket-handler handlers)))]
+                       (.setHandler (websockets/websocket-handler handlers)))]
     (add-handler webserver-context ctxt-handler enable-trailing-slash-redirect?)))
 
 (schema/defn ^:always-validate
