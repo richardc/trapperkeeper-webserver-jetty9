@@ -5,6 +5,7 @@
            (java.nio.file.attribute FileAttribute))
   (:require [clojure.test :refer :all]
             [gniazdo.core :as ws-client]
+            [puppetlabs.websockets.client :as ws-session]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer :all]
             [puppetlabs.trapperkeeper.testutils.webserver.common :refer :all]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -181,16 +182,31 @@
             add-websocket-handler (partial add-websocket-handler s)
             path                  "/test"
             connected             (atom 0)
-            messages              (atom [])
-            handlers              {:on-connect (fn [_] (swap! connected inc))
-                                   :on-text (fn [_ text] (swap! messages conj text))}]
+            server-messages       (atom [])
+            client-messages       (atom [])
+            handlers              {:on-connect (fn [ws]
+                                                 (ws-session/send! ws "Hello client!")
+                                                 (swap! connected inc))
+                                   :on-text    (fn [ws text]
+                                                 (ws-session/send! ws (str "You said: " text))
+                                                 (swap! server-messages conj text))}]
         (add-websocket-handler handlers path)
-        (let [socket (ws-client/connect (str "ws://localhost:8080" path))]
+        (let [socket (ws-client/connect (str "ws://localhost:8080" path)
+                                        :on-receive (fn [text] (swap! client-messages conj text)))]
           (ws-client/send-msg socket "Hello websocket handler")
           (ws-client/send-msg socket "You look dandy")
+          ;; Websockets by their nature are a chat protocol so we have
+          ;; to wait a small amount of time for the responses sent by
+          ;; the :on-text handler to make it back before we can
+          ;; disconnect
+          (Thread/sleep 200)
           (ws-client/close socket))
         (is (= @connected 1))
-        (is (= @messages ["Hello websocket handler" "You look dandy"]))))))
+        (is (= @client-messages ["Hello client!"
+                                 "You said: Hello websocket handler"
+                                 "You said: You look dandy"]))
+        (is (= @server-messages ["Hello websocket handler"
+                                 "You look dandy"]))))))
 
 (deftest war-test
   (testing "WAR support"
