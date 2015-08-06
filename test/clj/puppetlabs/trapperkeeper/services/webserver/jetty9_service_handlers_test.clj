@@ -182,10 +182,12 @@
             add-websocket-handler (partial add-websocket-handler s)
             path                  "/test"
             connected             (atom 0)
+            is-ssl                (atom 0)
             server-messages       (atom [])
             client-messages       (atom [])
             handlers              {:on-connect (fn [ws]
                                                  (ws-session/send! ws "Hello client!")
+                                                 (reset! is-ssl (ws-session/ssl? ws))
                                                  (swap! connected inc))
                                    :on-text    (fn [ws text]
                                                  (ws-session/send! ws (str "You said: " text))
@@ -202,11 +204,29 @@
           (Thread/sleep 200)
           (ws-client/close socket))
         (is (= @connected 1))
+        (is (not @is-ssl))
         (is (= @client-messages ["Hello client!"
                                  "You said: Hello websocket handler"
                                  "You said: You look dandy"]))
         (is (= @server-messages ["Hello websocket handler"
-                                 "You look dandy"]))))))
+                                 "You look dandy"])))))
+  (testing "SSL support"
+    (with-app-with-config app
+      [jetty9-service]
+      jetty-ssl-pem-config
+      (let [s                     (get-service app :WebserverService)
+            add-websocket-handler (partial add-websocket-handler s)
+            path                  "/test"
+            connected             (atom 0)
+            is-ssl                (atom 0)
+            handlers              {:on-connect (fn [ws]
+                                                 (reset! is-ssl (ws-session/ssl? ws))
+                                                 (swap! connected inc))}]
+        (add-websocket-handler handlers path)
+        (let [socket (ws-client/connect (str "wss://localhost:8081" path))]
+          (ws-client/close socket))
+        (is (= @connected 1))
+        (is (= @is-ssl true))))))
 
 (deftest war-test
   (testing "WAR support"
