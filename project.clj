@@ -1,5 +1,5 @@
 (def tk-version "1.1.1")
-(def ks-version "1.0.0")
+(def ks-version "1.1.0")
 (def jetty-version "9.2.10.v20150310")
 
 (defproject puppetlabs/trapperkeeper-webserver-jetty9 "1.3.2-SNAPSHOT"
@@ -12,8 +12,8 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/tools.logging "0.2.6"]
-                 [clj-time "0.5.1"]
+                 [org.clojure/tools.logging "0.3.1"]
+                 [clj-time "0.9.0"]
                  [prismatic/schema "0.4.3"]
                  [prismatic/plumbing "0.4.2"]
                  [puppetlabs/kitchensink ~ks-version]
@@ -21,6 +21,7 @@
                  [puppetlabs/ssl-utils "0.8.0"]
 
                  [ch.qos.logback/logback-access "1.1.1"]
+                 [org.slf4j/slf4j-api "1.7.10"]
 
                  [org.codehaus.janino/janino "2.7.8"]
 
@@ -67,15 +68,13 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [org.clojure/tools.namespace "0.2.10"]
-                                  [org.clojure/java.jmx "0.2.0"]
-                                  [spyscope "0.1.4"]
+                                  [org.clojure/java.jmx "0.3.0"]
                                   [compojure "1.1.8" :exclusions [ring/ring-core
                                                                   commons-io
                                                                   org.clojure/tools.macro]]
                                   [stylefruits/gniazdo "0.4.0" :exclusions [org.eclipse.jetty.websocket/websocket-api
                                                                             org.eclipse.jetty.websocket/websocket-client
                                                                             org.eclipse.jetty/jetty-util]]]
-                   :injections [(require 'spyscope.core)]
                     ;; Enable SSLv3 for unit tests that exercise SSLv3
                     :jvm-opts ["-Djava.security.properties=./dev-resources/java.security"]}
 
