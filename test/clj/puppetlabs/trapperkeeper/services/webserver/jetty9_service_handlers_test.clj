@@ -181,32 +181,48 @@
       (let [s                     (get-service app :WebserverService)
             add-websocket-handler (partial add-websocket-handler s)
             path                  "/test"
-            connected             (atom 0)
-            server-messages       (atom [])
-            client-messages       (atom [])
-            handlers              {:on-connect (fn [ws]
-                                                 (ws-session/send! ws "Hello client!")
-                                                 (swap! connected inc))
-                                   :on-text    (fn [ws text]
-                                                 (ws-session/send! ws (str "You said: " text))
-                                                 (swap! server-messages conj text))}]
+            connected              (atom 0)
+            server-messages        (atom [])
+            server-binary-messages (atom [])
+            client-messages        (atom [])
+            client-binary-messages (atom [])
+            binary-client-message  (promise)
+            closed                 (promise)
+            handlers               {:on-connect (fn [ws]
+                                                  (ws-session/send! ws "Hello client!")
+                                                  (swap! connected inc))
+                                    :on-text    (fn [ws text]
+                                                  (ws-session/send! ws (str "You said: " text))
+                                                  (swap! server-messages conj text))
+                                    :on-bytes   (fn [ws bytes offset len]
+                                                  (let [as-vec (vec bytes)]
+                                                    (ws-session/send! ws (byte-array (reverse as-vec)))
+                                                    (swap! server-binary-messages conj as-vec)))
+                                    :on-error   (fn [ws error]) ;; TODO - Add test for on-error behaviour
+                                    :on-close   (fn [ws code reason] (swap! connected dec)
+                                                  (deliver closed true))}]
         (add-websocket-handler handlers path)
         (let [socket (ws-client/connect (str "ws://localhost:8080" path)
-                                        :on-receive (fn [text] (swap! client-messages conj text)))]
+                                        :on-receive (fn [text] (swap! client-messages conj text))
+                                        :on-binary  (fn [bytes offset len]
+                                                      (let [as-vec (vec bytes)]
+                                                        (swap! client-binary-messages conj as-vec)
+                                                        (deliver binary-client-message true))))]
           (ws-client/send-msg socket "Hello websocket handler")
           (ws-client/send-msg socket "You look dandy")
-          ;; Websockets by their nature are a chat protocol so we have
-          ;; to wait a small amount of time for the responses sent by
-          ;; the :on-text handler to make it back before we can
-          ;; disconnect
-          (Thread/sleep 200)
-          (ws-client/close socket))
-        (is (= @connected 1))
-        (is (= @client-messages ["Hello client!"
-                                 "You said: Hello websocket handler"
-                                 "You said: You look dandy"]))
-        (is (= @server-messages ["Hello websocket handler"
-                                 "You look dandy"]))))))
+          (ws-client/send-msg socket (byte-array [2 1 2 3 3]))
+          (deref binary-client-message)
+          (is (= @connected 1))
+          (ws-client/close socket)
+          (deref closed)
+          (is (= @connected 0))
+          (is (= @server-binary-messages [[2 1 2 3 3]]))
+          (is (= @client-binary-messages [[3 3 2 1 2]]))
+          (is (= @client-messages ["Hello client!"
+                                   "You said: Hello websocket handler"
+                                   "You said: You look dandy"]))
+          (is (= @server-messages ["Hello websocket handler"
+                                   "You look dandy"])))))))
 
 (deftest war-test
   (testing "WAR support"
