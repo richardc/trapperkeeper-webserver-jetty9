@@ -51,20 +51,22 @@
   (connected? [this]
     (. this (isConnected))))
 
-(defn- do-nothing [& args])
-
 (definterface CertGetter
   (^Object getCerts []))
+
+(defn no-handler
+  [event & args]
+  (log/errorf "No handler defined for websocket event '%s' with args: '%s'" event args))
 
 (schema/defn ^:always-validate proxy-ws-adapter :- WebSocketAdapter
   [handlers :- WebsocketHandlers
    x509certs :- [X509Certificate]]
   (let [{:keys [on-connect on-error on-text on-close on-bytes]
-         :or {on-connect do-nothing
-              on-error do-nothing
-              on-text do-nothing
-              on-close do-nothing
-              on-bytes do-nothing}} handlers]
+         :or {on-connect (partial no-handler :on-connect)
+              on-error   (partial no-handler :on-error)
+              on-text    (partial no-handler :on-text)
+              on-close   (partial no-handler :on-close)
+              on-bytes   (partial no-handler :on-bytes)}} handlers]
     (proxy [WebSocketAdapter CertGetter] []
       (onWebSocketConnect [^Session session]
         (let [^WebSocketAdapter this this]
