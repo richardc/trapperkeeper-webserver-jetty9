@@ -223,38 +223,7 @@
                                    "You said: Hello websocket handler"
                                    "You said: You look dandy"]))
           (is (= @server-messages ["Hello websocket handler"
-                                   "You look dandy"]))))))
-  (testing "No supplied handlers"
-    (with-test-logging-debug
-      (with-app-with-config app
-        [jetty9-service]
-        jetty-plaintext-config
-        (let [s                     (get-service app :WebserverService)
-              add-websocket-handler (partial add-websocket-handler s)
-              path                  "/nohandlers"
-              client-closed         (promise)
-              handlers              {}]
-          (add-websocket-handler handlers path)
-          (let [socket (ws-client/connect (str "ws://localhost:8080" path)
-                                          :on-close (fn [code reason]
-                                                      (log/info "client on-close" code reason)
-                                                      (deliver client-closed [code reason])))]
-            (ws-client/send-msg socket "Hello websocket handler")
-            (ws-client/send-msg socket (byte-array [2 1 2 3 3]))
-            (ws-client/close socket)
-            (deref client-closed)
-            (is (logged? #"^client on-close" :info))
-            ;;   ARGH.  So this is happening when running in context of cthun, but not during testing.
-            ;;
-            ;;  LIGHTBULB.  bindings are not visible across thread
-            ;;  boundaries, so even though we swap out
-            ;;  clojure.tools.logging/*logger-factory* it's only in
-            ;;  this thread/binding context as per http://clojure.org/vars
-            ;;    """Bindings created with binding cannot be seen by any other thread"""
-            ;;
-            ;;  So I'm not even sure this is testable.
-            ;;
-            (is (logged? #"^No handler defined for websocket event ':on-connect' with args:" :error))))))))
+                                   "You look dandy"])))))))
 
 (deftest war-test
   (testing "WAR support"
