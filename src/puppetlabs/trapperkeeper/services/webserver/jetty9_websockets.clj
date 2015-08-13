@@ -73,14 +73,20 @@
           (proxy-super onWebSocketConnect session))
         (on-connect this))
       (onWebSocketError [^Throwable e]
+        (let [^WebSocketAdapter this this]
+          (proxy-super onWebSocketError e))
         (on-error this e))
       (onWebSocketText [^String message]
+        (let [^WebSocketAdapter this this]
+          (proxy-super onWebSocketText message))
         (on-text this message))
       (onWebSocketClose [statusCode ^String reason]
         (let [^WebSocketAdapter this this]
           (proxy-super onWebSocketClose statusCode reason))
         (on-close this statusCode reason))
       (onWebSocketBinary [^bytes payload offset len]
+        (let [^WebSocketAdapter this this]
+          (proxy-super onWebSocketBinary payload offset len))
         (on-bytes this payload offset len))
       (getCerts [] x509certs))))
 
