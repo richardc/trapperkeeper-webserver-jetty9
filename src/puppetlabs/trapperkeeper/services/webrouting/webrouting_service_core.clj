@@ -24,9 +24,6 @@
 (def ContextHandlerOptions
   (dissoc (merge jetty9-core/ContextHandlerOptions RouteOption) :server-id))
 
-(def WebsocketHandlerOptions
-  (dissoc (merge jetty9-core/CommonOptions RouteOption) :server-id))
-
 (def ServletHandlerOptions
   (dissoc (merge jetty9-core/ServletHandlerOptions RouteOption) :server-id))
 
@@ -129,7 +126,7 @@
 (schema/defn ^:always-validate add-websocket-handler!
   [context webserver-service
    svc :- (schema/protocol tk-services/Service)
-   handlers options :- WebsocketHandlerOptions]
+   handlers options :- RouteOption]
   (let [{:keys [path opts]}   (compute-common-elements context svc options)
         add-websocket-handler (:add-websocket-handler webserver-service)]
     (add-websocket-handler handlers path opts)))
