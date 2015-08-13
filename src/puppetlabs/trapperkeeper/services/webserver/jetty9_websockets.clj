@@ -56,7 +56,7 @@
 
 (defn no-handler
   [event & args]
-  (log/errorf "No handler defined for websocket event '%s' with args: '%s'" event args))
+  (log/debugf "No handler defined for websocket event '%s' with args: '%s'" event args))
 
 (schema/defn ^:always-validate proxy-ws-adapter :- WebSocketAdapter
   [handlers :- WebsocketHandlers
