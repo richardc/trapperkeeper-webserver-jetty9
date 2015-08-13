@@ -250,13 +250,18 @@ the functions of WebSocketProtocol protocol from the
 `puppetlabs.websocket.client` namespace:
 
 ```clj
-(send! [ws msg])
-(close! [ws])
-(remote-addr [ws])
-(ssl? [ws])
-(peer-certs [ws])
-(idle-timeout! [ws ms])
-(connected? [ws])
+(connected? [this]
+  "Returns a boolean indicating if the session is currently connected")
+(send! [this msg]
+  "Send a message to the websocket client")
+(close! [this]
+  "Close the websocket session")
+(remote-addr [this]
+  "Find the remote address of a websocket client")
+(ssl? [this]
+  "Returns a boolean indicating if the session was established by wss://")
+(peer-certs [this]
+  "Returns an array of X509Certs presented by the ssl peer, if any"))
 ```
 
 For example, to provide a simple websockets echo service as `/wsecho`:
