@@ -5,13 +5,13 @@
            (java.nio.file.attribute FileAttribute))
   (:require [clojure.test :refer :all]
             [gniazdo.core :as ws-client]
+            [puppetlabs.experimental.websockets.client :as ws-session]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer :all]
             [puppetlabs.trapperkeeper.testutils.webserver.common :refer :all]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :refer [with-app-with-config]]
             [puppetlabs.trapperkeeper.testutils.logging
-             :refer [with-test-logging with-test-logging-debug]]
-            [puppetlabs.experimental.websockets.client :as ws-session]
+             :refer [with-test-logging]]
             [schema.test :as schema-test]
             [clojure.tools.logging :as log]))
 
